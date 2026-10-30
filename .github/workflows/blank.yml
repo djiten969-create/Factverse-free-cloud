@@ -1,4 +1,128 @@
-# This is a basic workflow to help you get started with Actions
+# This is a basic workflow to help you get 
+name: FACTVERSE Daily Video Generator
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 3 * * *"
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  generate-video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install video tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg espeak-ng fonts-dejavu-core
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python package
+        run: pip install Pillow
+
+      - name: Generate FACTVERSE video
+        run: |
+          cat > generate.py <<'PY'
+          from PIL import Image, ImageDraw, ImageFont
+          from datetime import date
+          import subprocess
+          import textwrap
+          import os
+
+          facts = [
+              ("SPACE FACT", "Venus par ek din uske ek saal se bhi lamba hota hai."),
+              ("ANIMAL FACT", "Octopus ke teen hearts hote hain."),
+              ("SCIENCE FACT", "Light vacuum mein lagbhag 3 lakh kilometre per second travel karti hai."),
+              ("EARTH FACT", "Antarctica duniya ka sabse bada desert hai."),
+              ("ANIMAL FACT", "Sharks, trees se bhi purane hain."),
+              ("SPACE FACT", "Sun hamare solar system ke total mass ka lagbhag 99.8 percent hai."),
+              ("SCIENCE FACT", "Sound vacuum mein travel nahi kar sakti."),
+              ("ANIMAL FACT", "Butterflies apne pairon se taste karti hain."),
+              ("EARTH FACT", "Earth perfect sphere nahi hai; poles par thodi flattened hai."),
+              ("SCIENCE FACT", "Water 0 degree Celsius par normal atmospheric pressure mein freeze hota hai.")
+          ]
+
+          index = date.today().toordinal() % len(facts)
+          category, fact = facts[index]
+
+          W, H = 1080, 1920
+          img = Image.new("RGB", (W, H), (12, 17, 38))
+          draw = ImageDraw.Draw(img)
+
+          title_font = ImageFont.truetype(
+              "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 78)
+          category_font = ImageFont.truetype(
+              "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 42)
+          body_font = ImageFont.truetype(
+              "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 57)
+          small_font = ImageFont.truetype(
+              "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32)
+
+          draw.text((W//2, 300), "FACTVERSE", font=title_font,
+                    fill=(255, 205, 70), anchor="mm")
+
+          draw.text((W//2, 650), category, font=category_font,
+                    fill=(100, 210, 255), anchor="mm")
+
+          lines = textwrap.wrap(fact, width=25)
+          y = 850
+          for line in lines:
+              draw.text((W//2, y), line, font=body_font,
+                        fill="white", anchor="mm")
+              y += 100
+
+          draw.text((W//2, 1450), "FOLLOW FOR MORE FACTS",
+                    font=small_font, fill=(255, 205, 70), anchor="mm")
+
+          draw.text((W//2, 1770), "DAILY KNOWLEDGE | FACTVERSE",
+                    font=small_font, fill="white", anchor="mm")
+
+          img.save("factverse.png")
+
+          subprocess.run([
+              "espeak-ng", "-v", "en", "-s", "135",
+              fact, "-w", "voice.wav"
+          ], check=True)
+
+          subprocess.run([
+              "ffmpeg", "-y",
+              "-loop", "1", "-i", "factverse.png",
+              "-i", "voice.wav",
+              "-vf", "scale=1080:1920",
+              "-c:v", "libx264",
+              "-tune", "stillimage",
+              "-c:a", "aac",
+              "-b:a", "128k",
+              "-pix_fmt", "yuv420p",
+              "-shortest",
+              "factverse-short.mp4"
+          ], check=True)
+
+          print("FACTVERSE video generated successfully")
+          PY
+
+          python generate.py
+
+      - name: Save generated video
+        uses: actions/upload-artifact@v4
+        with:
+          name: FACTVERSE-Shorts
+          path: factverse-short.mp4
+          retention-days: 7
+ with Actions
 
 name: CI
 
